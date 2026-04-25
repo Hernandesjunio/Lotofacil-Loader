@@ -1,0 +1,27 @@
+---
+description: Mensagens de commit em português (Conventional Commits)
+alwaysApply: true
+---
+
+# Commits em português + Conventional Commits
+
+Ao criar commits, a mensagem **deve**:
+
+- estar **em português** (Brasil);
+- seguir **Conventional Commits**;
+- ser **curta e descritiva**, no **imperativo** (ex.: "adiciona", "corrige", "remove").
+
+## Formato
+
+`<tipo>(<escopo opcional>): <resumo>`
+
+- **tipo**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+- **escopo (opcional)**: componente/módulo/área (ex.: `docs`, `loader`, `azure-function`)
+- **resumo**: português, sem ponto final
+
+## Exemplos
+
+- `chore: commit inicial`
+- `docs: adiciona guia de execução por spec`
+- `feat(loader): adiciona leitura determinística de entradas`
+- `fix: corrige validação de parâmetros obrigatórios`
