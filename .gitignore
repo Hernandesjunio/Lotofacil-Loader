@@ -1,3 +1,43 @@
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+**/TestResults/
+
+# User-specific files
+*.user
+*.userosscache
+*.suo
+*.rsuser
+*.userprefs
+
+# IDEs/editors
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Rider
+.idea/
+
+# Dotnet tools / caches
+.dotnet/
+**/.toolstarget
+
+# NuGet
+**/packages/
+**/project.lock.json
+**/project.fragment.lock.json
+**/artifacts/
+
+# Logs
+*.log
+
+# OS files
+Thumbs.db
+Desktop.ini
+
 .DS_Store
 Thumbs.db
 
