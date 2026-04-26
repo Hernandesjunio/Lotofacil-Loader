@@ -1,49 +1,67 @@
-# Template kit — spec-driven + desenvolvimento orientado por IA (agnóstico)
+# Lotofacil-Loader
 
-Esta pasta é um **template portátil** para você copiar para um repositório novo e iniciar um processo **spec-driven, TDD e determinístico**, desenhado para ser consumido por **agentes de IA** via uma **superfície pública regida por contrato**.
+Atualizador de resultados da **Lotofácil** executado como **Azure Function** (**C# / .NET**) com **Timer Trigger**.
 
-> <PLACEHOLDER-PROTOCOLO>
-> Este kit é **agnóstico**: a superfície pública pode ser “tools”, API, CLI, SDK, eventos, etc.
-> Defina o protocolo/transporte depois, no refinamento técnico (não aqui).
+O sistema mantém um **JSON** num **Blob Storage** (para consumo externo via **SAS token**) e usa **Azure Table Storage** como estado para saber **qual foi o último concurso carregado**, evitando trabalho redundante e permitindo retomar atualizações em execuções futuras.
 
-## O que este kit entrega
+## O que este projeto faz
 
-- **Docs-first**: semântica em `docs/` antes de qualquer implementação.
-- **Templates atômicos** (“implemente apenas X”) para evitar pedidos amplos/ambíguos.
-- **Skills/Rules do Cursor** para tornar o fluxo repetível com IA.
+- **Executa por timer** (Azure Functions Timer Trigger).
+- **Consulta uma API externa** para:
+  - descobrir o **último concurso** publicado;
+  - buscar o **resultado por concurso (id)** para preencher lacunas.
+- **Atualiza um blob JSON** (nome do blob: `Lotofacil`) com uma coleção de `draws`.
+- **Persiste estado no Table Storage** (último concurso carregado), para:
+  - comparar “último carregado” vs “último disponível” antes de processar;
+  - retomar do ponto certo se faltar tempo numa execução.
 
-## O que este kit não entrega
+## Fonte de verdade (documentação)
 
-- Não entrega especificação do seu domínio (isso é seu).
-- Não entrega uma arquitetura fixa (isso vem do refinamento técnico).
-- Não promete “melhor predição”, “maior chance” nem qualquer garantia de resultado.
+Este repositório segue uma abordagem **docs-first**. A descrição normativa do comportamento discutido está em:
 
-## Como usar num repositório novo
+- [`docs/lotofacil-loader-azure-function-contexto.md`](docs/lotofacil-loader-azure-function-contexto.md)
+- [`docs/brief.md`](docs/brief.md)
 
-1. Copie o conteúdo desta pasta para a raiz do seu repositório.
-2. Preencha os blocos `<PLACEHOLDER-...>` nos arquivos de `docs/`.
-3. Execute sempre na ordem: **spec → testes → implementação mínima → evidência**.
+## Dados persistidos no blob
 
-## Comece por aqui
+O blob contém um documento JSON com a chave `draws`. Cada item inclui:
 
-- `AGENTS.md` (mapa de fontes de verdade e regras não negociáveis)
-- `docs/brief.md` (escopo, restrições e não-objetivos)
-- `docs/project-guide.md` (fronteiras e molde de pastas)
-- `docs/spec-driven-execution-guide.md` (ordem prática de execução)
-- `docs/fases-execucao-templates.md` (pedidos atômicos copy/paste)
-- `docs/contract-test-plan.md` (fixtures, goldens, testes de contrato)
-- `docs/test-plan.md` (camadas e matriz de cobertura)
-- `docs/glossary.md` (opcional, linguagem humana)
+- `contest_id`
+- `draw_date`
+- `numbers`
+- `winners_15`
+- `has_winner_15`
 
-## Cursor (opcional)
+O mapeamento de campos (API → blob) e o formato completo estão detalhados em [`docs/lotofacil-loader-azure-function-contexto.md`](docs/lotofacil-loader-azure-function-contexto.md).
 
-- `.cursor/skills/spec-driven-bootstrap/` — *skill* de arranque (`SKILL.md`, `reference.md`, `prompts.md`)
-- `.cursor/skills/spec-driven-slice-executor/` — *skill* de fatia única (`SKILL.md`, `reference.md`)
-- `.cursor/rules/human-summary-style.md` — regra de resumos para humanos
+## Estado no Table Storage (alto nível)
 
-### Por que fatiar pedidos (e por vezes threads)
+O Table Storage armazena o **último concurso carregado** para o processo de atualização.
+Na conversa foram propostos (como exemplo) nomes como `LotofacilState` e um registo único de estado, incluindo `LastLoadedContestId`, `LastLoadedDrawDate` (data do último concurso carregado) e `LastUpdatedAtUtc`, com uso de **ETag** para concorrência otimista.
 
-- **Janela de contexto**: tudo o que entra na conversa (histórico, anexos, respostas) compete pelo mesmo limite; threads muito longas ou pedidos gigantes empurram specs para fora do “foco útil” do modelo.
-- **Ondas**: poucos ficheiros ou um recorte por pedido reduz omissão e deriva face ao que está em `docs/`.
-- **Thread nova** (opcional): ao saltar de fase grande (ex.: só docs → primeiro código), um arranque limpio evita arrastar mensagens que já não interessam.
+## Restrições e comportamento (resumo)
+
+- **Calendário do sorteio**: sorteios **somente em dias úteis**, **às 20h**. Para evitar chamadas desnecessárias, o estado pode ser usado para encerrar execuções fora dessa janela. (A timezone de referência deve ser definida explicitamente no ambiente; este README não fixa a timezone.)
+- **Frequência do timer**: foi discutido que o CRON pode rodar **a cada hora** (exemplo citado: `0 0 * * * *`).
+- **Janela de execução**: processamento com **janela interna máxima de 3 minutos**.
+- **Rate limit / resiliência**: quando houver limitação (ex.: **1 pedido/minuto**) e/ou respostas **429**, o fluxo considera **retry** (Polly) e respeito a `Retry-After` quando existir, desde que caiba na janela.
+- **Ordem de persistência**: primeiro **gravar o blob**, depois **atualizar o estado** no Table Storage.
+
+## Configuração (variáveis de ambiente)
+
+Os nomes abaixo foram sugeridos na conversa como padrão de configuração:
+
+- `Lotodicas__BaseUrl`
+- `Lotodicas__Token`
+- `Storage__ConnectionString`
+- `Storage__BlobContainer`
+- `Storage__LotofacilBlobName`
+- `Storage__LotofacilStateTable`
+
+Os segredos (ex.: token e credenciais do Storage) **não devem** ficar hardcoded no código-fonte.
+
+## Não-objetivos
+
+- Não há promessa de “previsão”, “melhor chance” ou qualquer garantia de resultado.
+- Não há implementação de consumo externo do blob (o consumo via SAS é responsabilidade de quem consome).
 

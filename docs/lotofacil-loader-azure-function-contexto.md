@@ -18,6 +18,11 @@ Este documento consolida **apenas** o que foi discutido nesta conversa, para ser
 
 ## 2. Restrições e comportamento acordados
 
+### 2.0 Calendário do sorteio (informação adicional)
+
+- Os sorteios ocorrem **somente em dias úteis**, **às 20h**.
+- Para evitar **defaults ocultos**, a “data de hoje” e o horário “20h” devem ser avaliados numa **timezone explicitamente definida** no ambiente de execução (o documento não fixa a timezone).
+
 ### 2.1 Orçamento e frequência do timer
 
 - Inicialmente considerou-se execução **a partir das 20h**, **de hora em hora**.
@@ -138,6 +143,7 @@ Na discussão foram propostos (como exemplo de modelação):
 - **RowKey** fixo: `Loader` (uma linha lógica de estado)
 - Campos lógicos:
   - `LastLoadedContestId` (inteiro)
+  - `LastLoadedDrawDate` (data; derivada de `data.draw_date` do último concurso carregado)
   - `LastUpdatedAtUtc` (data/hora)
   - Uso de **ETag** do Azure Table para **concorrência otimista** (evitar duas instâncias a sobrescrever estado de forma inconsistente).
 
@@ -150,6 +156,10 @@ Na discussão foram propostos (como exemplo de modelação):
 ## 6. Algoritmo de atualização (passo a passo, como descrito)
 
 1. **Ler** do Table Storage o registo do último concurso carregado (`lastLoaded`).
+2. **Encerramento antecipado para evitar chamadas desnecessárias** (antes de chamar a API):
+   - Se **hoje não é dia útil**: **terminar** (não há sorteio).
+   - Se **hoje é dia útil** e **ainda não passou das 20h** (na timezone definida): **terminar** (ainda não existe sorteio “de hoje”).
+   - Se **hoje é dia útil**, **já passou das 20h**, e `LastLoadedDrawDate == hoje`: **terminar** (o sorteio do dia já foi carregado).
 2. Chamar o endpoint **`/results/last`** (uma chamada).
 3. Obter `latestId` a partir de `data.draw_number`.
 4. Se **`latestId <= lastLoaded`**: **terminar** — não há novos concursos a carregar (o “último resultado retornado” já está alinhado com o que a função já tinha persistido).
@@ -160,7 +170,7 @@ Na discussão foram propostos (como exemplo de modelação):
    - Se a janela de 3 minutos terminar antes de concluir todos os ids, **parar**; na **próxima execução horária** o processo **retoma** a partir do estado persistido.
 8. **Persistência discutida (ordem)**:
    - **Primeiro** atualizar/gravar o **blob** com o documento JSON completo (`draws` atualizado).
-   - **Depois** atualizar o **Table Storage** com o novo `LastLoadedContestId` (e timestamp), para não marcar como carregado um concurso cujo blob falhou ao gravar.
+   - **Depois** atualizar o **Table Storage** com o novo `LastLoadedContestId`, `LastLoadedDrawDate` (do último concurso processado) e timestamp, para não marcar como carregado um concurso cujo blob falhou ao gravar.
 
 ### 6.1 Idempotência e concorrência (mencionado na conversa)
 
