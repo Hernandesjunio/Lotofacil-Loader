@@ -132,6 +132,34 @@ O exemplo abaixo contém:
 Para **testes locais**, você pode acelerar o timer (por exemplo, **a cada minuto**) ajustando `LotofacilLoader__TimerSchedule` para `0 * * * * *`.
 Em **produção**, mantenha o valor **normativo/recomendado** (`0 0 * * * *`), salvo decisão explícita de contrato.
 
+## Deploy manual (gerar ZIP em Release)
+
+### Gerar pacote (Release)
+
+Na raiz do repositório:
+
+```bash
+dotnet publish "src/FunctionApp/Lotofacil.Loader.FunctionApp.csproj" -c Release -o "artifacts/publish"
+```
+
+Gerar o ZIP a partir do output publicado:
+
+```bash
+cd artifacts/publish && zip -r "../functionapp.zip" .
+```
+
+O arquivo final fica em `artifacts/functionapp.zip`.
+
+### Publicar o ZIP (opções)
+
+- **Azure Portal (Zip Deploy)**:
+  - Function App → *Deployment Center* (ou *Advanced Tools / Kudu*) → Zip Deploy → enviar `artifacts/functionapp.zip`.
+- **Azure Functions Core Tools**:
+
+```bash
+func azure functionapp publish "<NOME_DA_FUNCTION_APP>"
+```
+
 ## Hooks de Git (qualidade local)
 
 Este repositório inclui um hook `pre-push` para **bloquear pushes** quando `dotnet test` falhar.
