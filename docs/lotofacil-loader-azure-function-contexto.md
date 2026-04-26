@@ -2,6 +2,8 @@
 
 Este documento consolida **apenas** o que foi discutido nesta conversa, para servir de base à documentação do projeto. Não inclui requisitos ou decisões que não tenham aparecido no fio de discussão.
 
+Decisões formalizadas (fonte de verdade): `docs/adrs/0001-lotofacil-loader-azure-function.md`.
+
 ---
 
 ## 1. Objetivo do sistema
@@ -260,5 +262,9 @@ O fio de discussão **não** detalhou, entre outros:
 Até ao momento desta conversa, o que existiu foi **planeamento e decisões de desenho**. A **implementação de código** foi condicionada a aprovação explícita do utilizador (“só executar quando eu aprovar”); a criação deste markdown **não** implica que o código já tenha sido gerado no repositório.
 
 ---
+
+## Referências
+
+- `docs/adrs/0001-lotofacil-loader-azure-function.md`
 
 *Documento gerado a partir do histórico desta conversa, sem adicionar requisitos não discutidos.*
