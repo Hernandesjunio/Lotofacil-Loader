@@ -75,47 +75,72 @@ O objetivo desta seção é impedir que a implementação “complete lacunas”
 
 ## Contrato V0 — Lotofacil Loader (normativo)
 
-Esta seção é **a especificação final** para a IA implementar a V0. Nada aqui deve depender de documentos “de contexto” arquivados.
+Esta seção é **a especificação final e testável** para implementar a V0. Ela deve permitir escrever **testes de contrato** sem “inventar” comportamento. Quando houver conflito, prevalece este contrato e as decisões em `docs/adrs/*` (ver `docs/adrs/0001-lotofacil-loader-azure-function.md`).
 
-### 1) Stack e superfície pública
+### 1) Stack e superfície pública (V0)
 
-- **Runtime**: Azure Functions em **C#/.NET**
-- **Trigger**: **Timer Trigger**
-- **Semântica**: o trigger apenas orquestra; a lógica deve ser testável sem Azure (ports/adapters).
+- **Runtime**: Azure Functions em **C#/.NET**.
+- **Trigger**: **Timer Trigger**.
+- **Arquitetura**: ports & adapters (ver ADR 0001). O trigger é fino (orquestração + observabilidade) e a lógica é testável sem Azure.
 
-### 2) Regras de calendário (fechadas para evitar inferência)
+### 2) Entradas canônicas (config/ambiente) — obrigatórias e validações (V0)
 
-- **Timezone de referência**: `America/Sao_Paulo` (IANA).
-- **Definição de “dia útil”**: **segunda a sexta**, sem considerar feriados (V0).
-- **Regra do “20h”**: “passou das 20h” significa **hora local >= 20:00:00** na timezone de referência.
+Todas as entradas abaixo são **variáveis de ambiente** (config), lidas no início. Se alguma validação falhar, a execução é **falha dura** e termina **sem efeitos** (não chama API; não escreve blob/table).
 
-### 3) Agendamento (CRON)
+- **`Lotodicas__BaseUrl`** (obrigatória)
+  - **Formato**: URL absoluta HTTPS.
+  - **Normalização canônica**: sem barra final (ex.: `https://www.lotodicas.com.br`).
+- **`Lotodicas__Token`** (obrigatória; segredo)
+  - **Formato**: string não vazia (após trim).
+- **`Storage__ConnectionString`** (obrigatória; segredo)
+  - **Formato**: connection string válida para Azure Storage (V0 usa key/connection string via ambiente; ver ADR 0001).
+- **`Storage__BlobContainer`** (obrigatória)
+  - **Formato**: nome de container válido do Blob Storage (minúsculas, números e hífen; deve existir ou ser criável pela infraestrutura).
+- **`Storage__LotofacilBlobName`** (obrigatória)
+  - **Valor normativo (V0)**: **`Lotofacil`** (case-sensitive).
+- **`Storage__LotofacilStateTable`** (obrigatória)
+  - **Valor normativo (V0)**: **`LotofacilState`**.
+- **Timezone/relógio (normativo, não configurável na V0)**:
+  - **Timezone de referência**: `America/Sao_Paulo` (IANA).
+  - **Como derivar “agora” e “hoje”**: obter `nowLocal` convertendo um relógio de referência (UTC) para `America/Sao_Paulo`; então `todayLocal = date(nowLocal)` (apenas a data nessa timezone).
 
-- **CRON normativo (Azure Functions, com segundos)**: `0 0 * * * *` (a cada hora, minuto 0).
+### 3) Regras de calendário (fechadas para evitar inferência) (V0)
 
-### 4) Janela máxima e política de execução
+- **Definição de “dia útil”**: **segunda a sexta**, **sem considerar feriados** (V0). Fonte: somente regra ISO weekday; não há calendário externo.
+- **Regra do “20h”**: “passou das 20h” significa **`nowLocal >= todayLocal 20:00:00`** na timezone de referência, com comparação exata (inclui segundos).
 
-- **Janela máxima por execução**: 3 minutos (180s) de trabalho interno.
-- Ao atingir a janela, a execução **encerra de forma segura** e o processamento **retoma** na próxima execução do timer.
+### 4) Agendamento (CRON) (V0)
 
-### 5) API de fonte (Lotodicas)
+- **CRON normativo (Azure Functions Timer Trigger, com segundos)**: **`0 0 * * * *`**.
+  - Interpretação: a cada hora, no minuto 0, segundo 0.
 
-- **Base URL**: `https://www.lotodicas.com.br` (configurável).
-- **Autenticação**: token via query string `token=<TOKEN>` (segredo via ambiente).
+### 5) Limites, janelas e timeouts (V0)
+
+- **Janela máxima por execução**: **180s** contados do início da função.
+  - Ao atingir o deadline (ou não haver tempo suficiente para progredir com segurança), a execução **para com parada segura** e **retoma** no próximo tick.
+- **Timeout por request HTTP** (cada tentativa): **10s**.
+- **Orçamento mínimo para iniciar uma nova tentativa**: se o tempo restante até o deadline for menor que **15s**, encerrar com parada segura (para evitar iniciar IO sem chance de concluir e persistir).
+
+### 6) API de fonte (Lotodicas) — endpoints e parsing mínimo (V0)
+
+- **Base URL canônica**: `Lotodicas__BaseUrl`.
+- **Autenticação**: token via query string `token=<TOKEN>` (segredo em `Lotodicas__Token`).
 - **Endpoints normativos**:
   - **Último concurso**: `/api/v2/lotofacil/results/last?token=<TOKEN>`
   - **Concurso por id**: `/api/v2/lotofacil/results/{id}?token=<TOKEN>`
-- **Campos mínimos consumidos do JSON**:
-  - `data.draw_number` (id do concurso)
-  - `data.draw_date` (data do sorteio, formato `YYYY-MM-DD`)
-  - `data.drawing.draw` (lista de números)
-  - `data.prizes[]` com item `name == "15 acertos"` e campo `winners`
+- **Campos mínimos consumidos do JSON** (qualquer ausência/tipo inesperado é **falha dura**):
+  - `data.draw_number` (inteiro; id do concurso)
+  - `data.draw_date` (string; `YYYY-MM-DD`)
+  - `data.drawing.draw` (array de inteiros)
+  - `data.prizes[]` contendo item com `name == "15 acertos"` e campo `winners` (inteiro; pode ser 0)
 
-### 6) Artefato no Blob (contrato de saída)
+### 7) Saídas canônicas — artefato no Blob (V0)
 
-- **Nome do blob**: `Lotofacil`
-- **Content-Type**: `application/json; charset=utf-8`
-- **Formato do documento**:
+- **Artefato**: 1 documento JSON no Blob Storage.
+- **Container**: `Storage__BlobContainer`.
+- **Nome do blob**: `Storage__LotofacilBlobName` (normativo: `Lotofacil`).
+- **Content-Type**: `application/json; charset=utf-8`.
+- **Formato do documento (canônico)**:
 
 ```json
 {
@@ -131,79 +156,134 @@ Esta seção é **a especificação final** para a IA implementar a V0. Nada aqu
 }
 ```
 
-- **Mapeamento API → blob**:
+- **Mapeamento API → blob (canônico)**:
   - `contest_id` ← `data.draw_number`
   - `draw_date` ← `data.draw_date`
   - `numbers` ← `data.drawing.draw`
   - `winners_15` ← `data.prizes[]` onde `name == "15 acertos"`, campo `winners`
   - `has_winner_15` ← `winners_15 > 0`
 - **Invariantes do blob (V0)**:
-  - `draws` deve estar **ordenado por `contest_id` ascendente**
-  - `contest_id` deve ser **único** (dedupe por `contest_id`)
-  - se um `contest_id` já existir, o item deve ser **sobrescrito** pelo novo cálculo (idempotência)
-  - a escrita deve ser **coerente**: persistir o documento completo (sem “append” parcial). Em caso de reexecução, o documento final deve continuar válido.
-  - não incluir metadados extras (ex.: `schema_version`, timestamps) na V0
+  - **Ordenação**: `draws` em **ordem crescente** por `contest_id`.
+  - **Deduplicação**: `contest_id` é **único**; ao (re)processar um `contest_id`, o item final no blob deve refletir o último cálculo determinístico (sobrescrita lógica).
+  - **Serialização canônica (para golden tests)**:
+    - nomes de campos exatamente como no exemplo (`snake_case`);
+    - `draw_date` sempre como string `YYYY-MM-DD`;
+    - `numbers` como array de inteiros na ordem retornada pela API (não reordenar);
+    - JSON sem campos extras na V0 (não adicionar `schema_version`, timestamps, etc.).
+  - **Escrita coerente**: o blob é escrito como um documento completo e válido (sem “append” parcial). Leitores nunca devem observar uma representação inválida/partial.
+  - **Sobrescrita física**: a persistência deve substituir o conteúdo do blob pelo documento completo atualizado.
 
-### 7) Estado no Table Storage (contrato de checkpoint)
+### 8) Estado canônico — checkpoint no Table Storage (V0)
 
-- **Papel**: armazenar/consultar o “último concurso carregado” para evitar redundância e retomar lacunas.
-- **Tabela (V0)**: `LotofacilState`
+- **Papel**: armazenar/consultar o checkpoint para retomar lacunas e evitar redundância.
+- **Tabela (V0)**: `Storage__LotofacilStateTable` (normativo: `LotofacilState`).
 - **Chaves (V0)**:
   - `PartitionKey = "Lotofacil"`
   - `RowKey = "Loader"`
 - **Campos mínimos (V0)**:
-  - `LastLoadedContestId` (inteiro)
-  - `LastLoadedDrawDate` (string `YYYY-MM-DD` ou tipo data, mas o valor lógico deve ser a data do último concurso carregado)
+  - `LastLoadedContestId` (inteiro \(>= 0\))
+  - `LastLoadedDrawDate` (string `YYYY-MM-DD` ou null)
   - `LastUpdatedAtUtc` (timestamp UTC)
-- **Concorrência**: usar **ETag** (concorrência otimista). Se falhar por conflito, encerrar execução de forma segura e deixar para o próximo tick.
+- **Concorrência (Table)**: **ETag obrigatório** (concorrência otimista).
+  - Em conflito de ETag ao atualizar o state: **parada segura** (não tentar “resolver” por inferência); próxima execução retoma.
 
-### 8) Primeira execução e inconsistências (V0)
+### 9) Primeira execução e resolução de inconsistências (Table vs Blob) (V0)
 
-- Se o state no Table **não existir**:
-  - ler o blob `Lotofacil` se existir:
-    - se existir e contiver `draws`, derivar `LastLoadedContestId = max(draws[].contest_id)` e `LastLoadedDrawDate` do item correspondente, e persistir state
-    - se não existir (ou `draws` vazio), inicializar `LastLoadedContestId = 0` e `LastLoadedDrawDate = null`
+Quando o state no Table **não existir**:
 
-### 9) Algoritmo de atualização (normativo, com encerramentos)
+- Ler o blob `Lotofacil` (se existir).
+  - Se existir e `draws` não estiver vazio:
+    - derivar `LastLoadedContestId = max(draws[].contest_id)` e `LastLoadedDrawDate` do item correspondente;
+    - persistir o state no Table com esses valores (observando ETag na escrita subsequente).
+  - Se não existir (ou `draws` vazio):
+    - inicializar `LastLoadedContestId = 0` e `LastLoadedDrawDate = null`, e persistir o state.
 
-1. Ler state no Table (`LastLoadedContestId`, `LastLoadedDrawDate`).
-2. **Encerramento antecipado (antes de chamar API)**:
-   - se hoje **não** é dia útil: encerrar
-   - se hoje é dia útil e hora local < 20:00:00: encerrar
-   - se hoje é dia útil, hora local >= 20:00:00, e `LastLoadedDrawDate == hoje`: encerrar
+Se existir inconsistência entre Table e Blob:
+
+- **Fonte de verdade do checkpoint é o blob persistido**.
+  - Se `Table.LastLoadedContestId > max(blob.draws[].contest_id)`, tratar como **falha dura** (inconsistência de estado) e encerrar sem efeitos (não avançar; não reescrever blob “para casar”).
+
+### 10) Regras e encerramentos antecipados (V0)
+
+Encerramentos antecipados são **paradas seguras** (exit code “sucesso” operacional), e devem registrar **motivo de parada** (ver Observabilidade).
+
+Antes de chamar a API “último”:
+
+- Se `todayLocal` **não** é dia útil: encerrar.
+- Se é dia útil e `nowLocal < todayLocal 20:00:00`: encerrar.
+- Se é dia útil e `nowLocal >= todayLocal 20:00:00` e `LastLoadedDrawDate == todayLocal (YYYY-MM-DD)`: encerrar.
+
+Após obter `latestId` pelo endpoint “último”:
+
+- Se `latestId <= LastLoadedContestId`: encerrar (alinhado; não baixar por id; sem persistências).
+
+### 11) Algoritmo normativo de atualização (V0)
+
+1. Ler state no Table (`LastLoadedContestId`, `LastLoadedDrawDate`, ETag).
+2. Aplicar encerramentos antecipados (seção 10).
 3. Chamar endpoint “último” e obter `latestId = data.draw_number`.
-4. Se `latestId <= LastLoadedContestId`: encerrar (alinhado; sem downloads por id; sem persistências).
-5. Calcular lacunas `id` de `LastLoadedContestId + 1` até `latestId`, em ordem crescente.
-6. Processar ids em ordem crescente, respeitando a janela de 3 minutos:
-   - para cada `id`, chamar `/results/{id}` com resiliência (ver seção 10)
-   - atualizar o documento do blob em memória incluindo/sobrescrevendo o `id` processado
-   - ao final (ou ao expirar janela), persistir conforme seção 11
-7. Se a janela expirar, encerrar e retomar no próximo tick a partir do state persistido.
+4. Se `latestId <= LastLoadedContestId`: encerrar.
+5. Calcular lacunas `id` no intervalo **contíguo** \([LastLoadedContestId + 1, latestId]\), em ordem crescente.
+6. Preparar documento alvo do blob em memória:
+   - ler blob atual (se existir); se não existir, iniciar `{ "draws": [] }`.
+   - normalizar/validar invariantes canônicas (seção 7) em memória antes de persistir.
+7. Processar `id` em ordem crescente até expirar a janela:
+   - chamar `/results/{id}` aplicando resiliência/rate-limit (seção 12);
+   - em sucesso 200, mapear para o item canônico e **upsert** no documento em memória;
+   - após cada id bem-sucedido, atualizar um marcador interno `lastPersistableId = id` (sempre contíguo).
+8. Persistir (seção 13) o blob e então o state avançando **somente até `lastPersistableId`**.
+9. Se a janela expirar em qualquer ponto: encerrar com parada segura; próxima execução retoma do checkpoint persistido.
 
-### 10) Resiliência, rate limit e pacing (normativo)
+### 12) Rate limit / retry / pacing — precedência e teto (V0)
 
-- **Retries**: usar Polly para falhas transitórias (timeouts, 5xx, 429).
-- **429 / Retry-After**:
-  - se houver `Retry-After`, ele tem **precedência** sobre qualquer intervalo fixo, desde que não ultrapasse a janela restante
-- **Intervalo de retry quando não houver Retry-After**: 30s
-- **Teto**: nenhuma tentativa pode extrapolar a janela de 3 minutos; se extrapolar, encerrar e retomar no próximo tick.
-- **Pacing 1 req/min**:
-  - garantir ~60s entre chamadas quando aplicável; se isso impedir concluir todos os ids na janela, encerrar e retomar.
+- **Classificação base**:
+  - **429**: respeitar `Retry-After` quando presente.
+  - **5xx**, timeouts e falhas de rede: transitórios (passíveis de retry dentro da janela).
+  - **4xx (exceto 429)**:
+    - **404 no meio de uma lacuna** (`/results/{id}` inexistente): tratar como **falha dura de lacuna** (a execução deve parar imediatamente sem avançar além do último id contíguo já persistido; não “pular” o id ausente).
+    - **401/403** (token inválido): **falha dura**.
+- **Retries (Polly)**: somente enquanto houver janela restante suficiente para concluir e persistir.
+- **Precedência de espera entre tentativas/chamadas** (do maior para o menor):
+  1) `Retry-After` (quando presente e parseável);
+  2) pacing mínimo **1 req/min** (60s entre **inícios** de requests para a API);
+  3) intervalo fixo de retry quando não houver `Retry-After`: **30s**.
+- **Teto pela janela**: nenhuma espera/retry pode ultrapassar o deadline. Se ultrapassar, encerrar com parada segura.
 
-### 11) Persistência (ordem e garantias)
+### 13) Idempotência, concorrência e checkpoint (V0)
 
-- **Ordem obrigatória**: gravar **blob primeiro**, atualizar **Table depois**.
-- **Regra de checkpoint**: `LastLoadedContestId` só pode avançar até o **último `contest_id` que está refletido no blob persistido**.
-- Se falhar ao gravar o blob: **não atualizar** o Table.
- 
-### 12) Configuração por variáveis de ambiente (V0)
+- **Idempotência**:
+  - reexecutar a função com a mesma entrada canônica e mesma resposta da API deve produzir o mesmo blob canônico (seção 7);
+  - reprocessar um `contest_id` já presente resulta em sobrescrita lógica do item (dedupe por `contest_id`).
+- **Checkpoint (regra normativa)**:
+  - o state **só avança** após o blob persistido refletir o último concurso persistido;
+  - `LastLoadedContestId` sempre representa o **maior `contest_id` contíguo** materializado no blob.
+- **Ordem obrigatória de persistência**: **blob primeiro**, **Table depois** (ver ADR 0001).
+- **Concorrência (Table)**:
+  - ETag é obrigatório; em conflito: parada segura.
+- **Concorrência (Blob)**:
+  - se houver conflito de escrita (ex.: condição/ETag do blob falha, ou outra instância reescreveu o blob entre leitura e escrita), tratar como **parada segura**; não tentar mesclar por inferência na V0.
 
-- `Lotodicas__BaseUrl` (obrigatória)
-- `Lotodicas__Token` (obrigatória; segredo)
-- `Storage__ConnectionString` (obrigatória; segredo) *(V0 usa connection string/access key via ambiente)*
-- `Storage__BlobContainer` (obrigatória)
-- `Storage__LotofacilBlobName` (obrigatória; deve ser `Lotofacil`)
-- `Storage__LotofacilStateTable` (obrigatória; deve ser `LotofacilState`)
+### 14) Observabilidade (logs/métricas) — motivos de parada (V0)
+
+A execução deve emitir logs estruturados suficientes para explicar **por que parou** e **o que (não) fez**. Todo encerramento (inclusive antecipado) deve registrar um motivo.
+
+- **Campos mínimos recomendados em logs**:
+  - `run_id` (correlação por execução), `deadline_seconds=180`, `timezone=America/Sao_Paulo`
+  - `reason_stop` (enum), `last_loaded_contest_id`, `latest_id`, `processed_count`, `persisted_last_id`
+  - `http_attempts`, `retries_count`, `rate_limit_wait_seconds_total`, `elapsed_seconds`
+- **`reason_stop` (normativo; exemplos de valores)**:
+  - `EARLY_EXIT_NOT_BUSINESS_DAY`
+  - `EARLY_EXIT_BEFORE_20H`
+  - `EARLY_EXIT_ALREADY_LOADED_TODAY`
+  - `EARLY_EXIT_ALREADY_ALIGNED` (latestId <= lastLoaded)
+  - `SAFE_STOP_WINDOW_EXPIRED`
+  - `SAFE_STOP_CONCURRENCY_TABLE_ETAG`
+  - `SAFE_STOP_CONCURRENCY_BLOB_CONFLICT`
+  - `HARD_FAIL_CONFIG_INVALID`
+  - `HARD_FAIL_API_AUTH`
+  - `HARD_FAIL_API_SCHEMA`
+  - `HARD_FAIL_GAP_NOT_FOUND_404`
+  - `HARD_FAIL_STATE_INCONSISTENT_TABLE_GT_BLOB`
 
 ## V0 do sistema (fatia alvo deste repositório)
 
