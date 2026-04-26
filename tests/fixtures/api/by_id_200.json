@@ -1,0 +1,30 @@
+{
+  "scenario": "api_by_id_200",
+  "request": {
+    "method": "GET",
+    "path_template": "/api/v2/lotofacil/results/{id}",
+    "path_params": { "id": 2 },
+    "query": {
+      "token": "<TOKEN>"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "body": {
+      "code": 200,
+      "status": "success",
+      "data": {
+        "draw_number": 2,
+        "draw_date": "2003-09-30",
+        "drawing": { "draw": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 1, 3, 5] },
+        "prizes": [
+          { "name": "15 acertos", "winners": 5 },
+          { "name": "14 acertos", "winners": 98 }
+        ]
+      }
+    }
+  }
+}

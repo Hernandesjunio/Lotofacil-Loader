@@ -1,0 +1,16 @@
+{
+  "scenario": "api_by_id_timeout",
+  "request": {
+    "method": "GET",
+    "path_template": "/api/v2/lotofacil/results/{id}",
+    "path_params": { "id": 3 },
+    "query": {
+      "token": "<TOKEN>"
+    }
+  },
+  "error": {
+    "kind": "timeout",
+    "timeout_seconds": 10,
+    "message": "request exceeded timeout"
+  }
+}
