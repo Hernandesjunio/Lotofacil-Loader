@@ -32,6 +32,10 @@ Construir um sistema **descritivo** e **determinístico** que:
 6. `docs/project-guide.md` — estrutura (placeholder) + fronteiras
 7. `docs/glossary.md` — linguagem humana (opcional)
 
+## Guia operacional (execução local)
+
+- Exemplo de `local.settings.json` (apenas **operacional**, não normativo): ver seção **“Execução local (exemplo de `local.settings.json`)”** em `README.md`.
+
 > <PLACEHOLDER-NOMES-DE-ARQUIVO>
 > Este kit não inclui ficheiros normativos de **contrato detalhado** nem de **catálogo de indicadores**; crie-os no seu repositório (com os nomes que preferir) e acrescente-os ao mapa em `AGENTS.md`.
 > ADRs: use uma pasta `docs/adrs/` apenas quando fizer sentido (não faz parte do kit copiado).

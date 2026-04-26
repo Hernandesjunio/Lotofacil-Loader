@@ -60,6 +60,35 @@ Os nomes abaixo foram sugeridos na conversa como padrão de configuração:
 
 Os segredos (ex.: token e credenciais do Storage) **não devem** ficar hardcoded no código-fonte.
 
+## Execução local (exemplo de `local.settings.json`)
+
+Para rodar a Azure Function localmente (Azure Functions Core Tools), as variáveis podem ser fornecidas via `src/FunctionApp/local.settings.json` (**não versionar**).
+
+O exemplo abaixo contém:
+
+- chaves **operacionais do host** (necessárias para o runtime local iniciar);
+- chaves **do domínio (V0)** (normativas no contrato em `docs/spec-driven-execution-guide.md`, seção “Entradas canônicas”).
+
+> Observação: os valores abaixo são placeholders. Não comite tokens/segredos.
+
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "AzureWebJobsStorage": "<connection-string-para-storage-ou-emulador>",
+
+    "Lotodicas__BaseUrl": "https://www.lotodicas.com.br",
+    "Lotodicas__Token": "<seu-token>",
+
+    "Storage__ConnectionString": "<connection-string-do-storage>",
+    "Storage__BlobContainer": "<nome-do-container>",
+    "Storage__LotofacilBlobName": "Lotofacil",
+    "Storage__LotofacilStateTable": "LotofacilState"
+  }
+}
+```
+
 ## Hooks de Git (qualidade local)
 
 Este repositório inclui um hook `pre-push` para **bloquear pushes** quando `dotnet test` falhar.
