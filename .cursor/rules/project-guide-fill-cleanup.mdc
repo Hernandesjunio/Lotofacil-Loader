@@ -1,0 +1,11 @@
+---
+description: Preenchimento do guia do projeto sem sobras de template
+globs: docs/project-guide.md
+alwaysApply: false
+---
+
+# Guia do projeto: preenchimento e limpeza de template
+
+- Ao editar `docs/project-guide.md`, remover texto residual de template (ex.: trechos com “PLACEHOLDER”, opções genéricas não usadas, instruções do kit).
+- O guia deve refletir o **recorte atual** e suas **fronteiras** (superfície pública por contrato, módulos/camadas, responsabilidades e onde decisões vivem).
+- Evitar conteúdo duplicado de specs; quando necessário, **referenciar** `docs/brief.md` e documentos de contexto ao invés de repetir tudo.

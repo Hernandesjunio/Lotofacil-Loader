@@ -1,0 +1,12 @@
+---
+description: Preenchimento do glossário sem sobras de template
+globs: docs/glossary.md
+alwaysApply: false
+---
+
+# Glossário: preenchimento e limpeza de template
+
+- Ao editar `docs/glossary.md`, o arquivo deve ficar **totalmente preenchido** (sem texto residual de template como “portable/optional”, “Purpose”, “Rules”, “Human-summary snippets”, etc.).
+- Preferir listar termos em **tabela Markdown** com colunas: **Termo** e **Definição (curta, não preditiva)**.
+- Definições devem ser **descritivas e determinísticas**; evitar linguagem de previsão (“vai”, “garante”, “aumenta chance”, etc.).
+- Se algum termo não for relevante para o recorte atual, **não incluir** “por completude”; manter o glossário enxuto.
