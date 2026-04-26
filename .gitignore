@@ -49,6 +49,9 @@ logs/
 .env
 .env.*
 
+# Azure Functions (local-only settings)
+**/local.settings.json
+
 # Python
 __pycache__/
 *.pyc

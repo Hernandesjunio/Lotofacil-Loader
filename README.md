@@ -35,6 +35,44 @@ O blob contém um documento JSON com a chave `draws`. Cada item inclui:
 
 O mapeamento de campos (API → blob) e o formato completo estão detalhados em `docs/spec-driven-execution-guide.md` (Contrato V0).
 
+## Carga inicial do blob (bulk / layout CEF)
+
+Se você iniciar “do zero” e depender apenas da API (com pacing de 1 req/min), a carga completa pode levar dias.
+Para evitar isso, use uma fonte **bulk** (layout histórico da CEF em CSV) e converta para o **JSON canônico** do blob.
+
+### Gerar o JSON canônico a partir do CSV da CEF
+
+Este repositório inclui um script Python (sem dependências externas) que converte o CSV da CEF para o formato:
+
+```json
+{ "draws": [ { "contest_id": 1, "draw_date": "YYYY-MM-DD", "numbers": [..15..], "winners_15": 0, "has_winner_15": false } ] }
+```
+
+- **Script**: `tools/cef_to_blob.py`
+- **Entrada**: CSV da CEF (geralmente `;` e data `dd/MM/yyyy`)
+- **Saída**: JSON `UTF-8` com `draws` ordenado por `contest_id`
+
+Exemplo (Git Bash / Windows):
+
+```bash
+python tools/cef_to_blob.py --input "C:\caminho\para\lotofacil.csv" --output "C:\caminho\para\Lotofacil.json" --pretty
+```
+
+O script também suporta dados copiados do Excel (normalmente separados por **TAB**). Basta salvar o conteúdo em um arquivo `.tsv` (ou `.txt`) e rodar do mesmo jeito.
+Ele também funciona **sem header**: se a primeira linha não parecer um header, o script assume o layout posicional:
+
+- `Concurso`, `Data Sorteio`, `Bola1..Bola15`, (`Ganhadores 15 acertos` opcional)
+
+### Subir o JSON no Blob Storage
+
+Depois de gerar o arquivo, carregue-o no seu container configurado em:
+
+- `Storage__BlobContainer`
+- `Storage__LotofacilBlobName` (no contrato V0, o nome canônico do blob é `Lotofacil`)
+
+Você pode subir com Azure Portal, `az storage blob upload`, Storage Explorer, etc.
+Após essa carga inicial, a Function passa a atuar como **incremental**, preenchendo apenas concursos novos.
+
 ## Estado no Table Storage (alto nível)
 
 O Table Storage armazena o **último concurso carregado** para o processo de atualização.

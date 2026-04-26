@@ -12,6 +12,7 @@ O blob será disponibilizado a aplicações externas via **SAS token** (o consum
 - Consulta a uma API externa em dois modos:
   - **último resultado** (`/results/last`) para descobrir o concurso mais recente publicado;
   - **resultado por concurso** (`/results/{id}`) para preencher lacunas.
+- **Carga inicial (bulk)** do blob a partir de um dataset histórico (ex.: layout CEF em CSV/TSV), para evitar que a primeira carga dependa do pacing/rate-limit da API.
 - Persistência de:
   - um **documento JSON** no Blob Storage (nome do blob: `Lotofacil`);
   - o estado de “último concurso carregado” no **Table Storage** (para comparar e retomar).
