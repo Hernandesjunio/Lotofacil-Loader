@@ -129,6 +129,9 @@ O exemplo abaixo contém:
 }
 ```
 
+Para **testes locais**, você pode acelerar o timer (por exemplo, **a cada minuto**) ajustando `LotofacilLoader__TimerSchedule` para `0 * * * * *`.
+Em **produção**, mantenha o valor **normativo/recomendado** (`0 0 * * * *`), salvo decisão explícita de contrato.
+
 ## Hooks de Git (qualidade local)
 
 Este repositório inclui um hook `pre-push` para **bloquear pushes** quando `dotnet test` falhar.
