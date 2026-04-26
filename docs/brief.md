@@ -99,6 +99,6 @@ Nomes sugeridos na conversa (padrão `Section__Key`):
 
 ## Referências
 
-- [`lotofacil-loader-azure-function-contexto.md`](lotofacil-loader-azure-function-contexto.md) (fonte da verdade desta solução)
+- [`lotofacil-loader-azure-function-contexto.md`](lotofacil-loader-azure-function-contexto.md) (referência auxiliar / histórico de decisões)
 - [`../AGENTS.md`](../AGENTS.md)
 
