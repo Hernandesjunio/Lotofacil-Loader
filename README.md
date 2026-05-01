@@ -42,26 +42,48 @@ Para evitar isso, use uma fonte **bulk** (layout histórico da CEF em CSV) e con
 
 ### Gerar o JSON canônico a partir do CSV da CEF
 
-Este repositório inclui um script Python (sem dependências externas) que converte o CSV da CEF para o formato:
+Este repositório inclui scripts Python (sem dependências externas) que convertem o CSV da CEF para o formato canônico (Contrato V0).
+
+#### Lotofácil
 
 ```json
 { "draws": [ { "contest_id": 1, "draw_date": "YYYY-MM-DD", "numbers": [..15..], "winners_15": 0, "has_winner_15": false } ] }
 ```
 
-- **Script**: `tools/cef_to_blob.py`
+- **Script**: `tools/lotofacil_cef_to_blob.py`
 - **Entrada**: CSV da CEF (geralmente `;` e data `dd/MM/yyyy`)
 - **Saída**: JSON `UTF-8` com `draws` ordenado por `contest_id`
 
 Exemplo (Git Bash / Windows):
 
 ```bash
-python tools/cef_to_blob.py --input "C:\caminho\para\lotofacil.csv" --output "C:\caminho\para\Lotofacil.json" --pretty
+python tools/lotofacil_cef_to_blob.py --input "C:\caminho\para\lotofacil.csv" --output "C:\caminho\para\Lotofacil.json" --pretty
 ```
 
 O script também suporta dados copiados do Excel (normalmente separados por **TAB**). Basta salvar o conteúdo em um arquivo `.tsv` (ou `.txt`) e rodar do mesmo jeito.
 Ele também funciona **sem header**: se a primeira linha não parecer um header, o script assume o layout posicional:
 
 - `Concurso`, `Data Sorteio`, `Bola1..Bola15`, (`Ganhadores 15 acertos` opcional)
+
+#### Mega-Sena
+
+```json
+{ "draws": [ { "contest_id": 1, "draw_date": "YYYY-MM-DD", "numbers": [..6..], "winners_6": 0, "has_winner_6": false } ] }
+```
+
+- **Script**: `tools/mega_sena_cef_to_blob.py`
+- **Entrada**: CSV da CEF (geralmente `;` e data `dd/MM/yyyy`)
+- **Saída**: JSON `UTF-8` com `draws` ordenado por `contest_id`
+
+Exemplo (Git Bash / Windows):
+
+```bash
+python tools/mega_sena_cef_to_blob.py --input "C:\caminho\para\megasena.csv" --output "C:\caminho\para\MegaSena.json" --pretty
+```
+
+Sem header, o layout posicional esperado é:
+
+- `Concurso`, `Data Sorteio`, `Bola1..Bola6`, (`Ganhadores 6 acertos` opcional)
 
 ### Subir o JSON no Blob Storage
 

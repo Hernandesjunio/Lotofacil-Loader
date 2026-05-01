@@ -2,6 +2,8 @@
 """
 Converte o layout histórico da CEF (CSV) para o layout canônico do blob (Contrato V0).
 
+Loteria: Lotofácil
+
 Saída:
 {
   "draws": [
@@ -261,10 +263,7 @@ def convert_cef_csv_to_blob_document(path: str) -> Dict[str, List[dict]]:
         contest_id = _parse_int(row[field_map.contest_id_key], field=field_map.contest_id_key, row_index=i)
         draw_date = _parse_date_ddmmyyyy(row[field_map.draw_date_key], field=field_map.draw_date_key, row_index=i)
 
-        numbers = [
-            _parse_int(row[k], field=k, row_index=i)
-            for k in field_map.bola_keys
-        ]
+        numbers = [_parse_int(row[k], field=k, row_index=i) for k in field_map.bola_keys]
         if len(numbers) != 15:
             raise ValueError(f"linha {i}: esperado 15 dezenas, obtido {len(numbers)}")
 
