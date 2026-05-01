@@ -26,7 +26,7 @@ public sealed class LoteriaLoaderTimerFunction
 
     [Function(nameof(LoteriaLoaderTimerFunction))]
     public async Task RunAsync(
-        [TimerTrigger("%LoteriasLoader__TimerSchedule%")] TimerInfo timer,
+        [TimerTrigger("%LoteriasLoader:TimerSchedule%")] TimerInfo timer,
         CancellationToken ct)
     {
         var runId = Guid.NewGuid().ToString("n");

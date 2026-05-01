@@ -91,7 +91,7 @@ public sealed class LotofacilFunctionIntegrationTests
                 ["Storage:LotofacilBlobName"] = lotofacilBlobName,
                 ["Storage:MegasenaBlobName"] = megaBlobName,
                 ["Storage:LoteriasStateTable"] = tableName,
-                ["LoteriasLoader:TimerSchedule"] = "0 * * * * *"
+                ["LoteriasLoader__TimerSchedule"] = "0 * * * * *"
             })
             .Build();
 
